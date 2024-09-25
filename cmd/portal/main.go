@@ -19,16 +19,20 @@ func main() {
 	}
 
 	// Migrate the models (optional, if you want to auto-create tables)
-	err = db.AutoMigrate(&models.Tenant{}, &models.UserTenantMapping{}, &models.Feature{}, &models.UserFeatureMapping{})
+	err = db.AutoMigrate(
+		&models.Tenant{}, &models.UserTenantMapping{},
+		&models.Feature{}, &models.UserFeatureMapping{},
+		&models.Subscription{}, &models.UserSubscriptionMapping{},
+		&models.FeatureSubscriptionMapping{},
+	)
 	if err != nil {
 		log.Fatalf("Failed to migrate database schema: %v", err)
 	}
 
-	// Initialize the TenantHandler
+	// Initialize the handlers
 	tenantHandler := v1.NewTenantHandler(db)
-
-	// Initialize the FeatureHandler
 	featureHandler := v1.NewFeatureHandler(db)
+	subscriptionHandler := v1.NewSubscriptionHandler(db)
 
 	// Set up routes for the Tenant API endpoints
 	http.HandleFunc("/tenants", func(w http.ResponseWriter, r *http.Request) {
@@ -101,6 +105,53 @@ func main() {
 	http.HandleFunc("/features/mappings", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			featureHandler.MapUsersToFeature(w, r) // Map multiple users to a feature
+		}
+	})
+
+	// Set up routes for the Subscription API endpoints
+	http.HandleFunc("/subscriptions", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			subscriptionHandler.GetAllSubscriptions(w, r) // Get all subscriptions
+		case http.MethodPost:
+			subscriptionHandler.CreateSubscription(w, r) // Create a subscription
+		}
+	})
+
+	http.HandleFunc("/subscriptions/update", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			subscriptionHandler.UpdateSubscription(w, r) // Update a subscription
+		}
+	})
+
+	http.HandleFunc("/subscriptions/user", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			subscriptionHandler.GetSubscriptionsByUser(w, r) // Get subscriptions by user
+		}
+	})
+
+	http.HandleFunc("/subscriptions/mapping", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			subscriptionHandler.MapUserToSubscription(w, r) // Map a single user to a subscription
+		case http.MethodDelete:
+			subscriptionHandler.DeleteUserSubscriptionMapping(w, r) // Delete user-subscription mapping
+		}
+	})
+
+	// FeatureSubscriptionMapping endpoints
+	http.HandleFunc("/subscriptions/features", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			subscriptionHandler.MapFeatureToSubscription(w, r) // Map a feature to a subscription
+		case http.MethodDelete:
+			subscriptionHandler.DeleteFeatureSubscriptionMapping(w, r) // Delete feature-subscription mapping
+		}
+	})
+
+	http.HandleFunc("/subscriptions/features/list", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			subscriptionHandler.GetFeaturesBySubscription(w, r) // Get features by subscription
 		}
 	})
 

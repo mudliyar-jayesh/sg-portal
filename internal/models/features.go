@@ -13,7 +13,7 @@ type Feature struct {
 }
 
 type UserFeatureMapping struct {
-	ID        uint32 `gorm:"primaryKey"`
-	UserId    uint64 `gorm:"not null"`
-	FeatureId uint32 `gorm:"not null"`
+	ID        uint64 `gorm:"primaryKey"`
+	UserId    uint64 `gorm:"unique;not null"`
+	FeatureId uint32 `gorm:"unique;not null"`
 }
