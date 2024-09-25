@@ -2,74 +2,85 @@ package main
 
 import (
 	"log"
-	repository "sg-portal/pkg/util"
+	"net/http"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
+	"sg-portal/api/v1"
+	"sg-portal/internal/models"
 )
 
-// Define the User model
-type User struct {
-	ID    uint64 `gorm:"primaryKey"`
-	Name  string `gorm:"size:100;not null"`
-	Email string `gorm:"unique;not null"`
-	Age   int
+func main() {
+	// Initialize the database connection
+	db, err := initDB()
+	if err != nil {
+		log.Fatalf("Could not connect to the database: %v", err)
+	}
+
+	// Migrate the models (optional, if you want to auto-create tables)
+	err = db.AutoMigrate(&models.Tenant{}, &models.UserTenantMapping{})
+	if err != nil {
+		log.Fatalf("Failed to migrate database schema: %v", err)
+	}
+
+	// Initialize the TenantHandler
+	tenantHandler := v1.NewTenantHandler(db)
+
+	// Set up routes for the API endpoints
+	http.HandleFunc("/tenants", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			tenantHandler.GetAllTenants(w, r) // Get all tenants
+		case http.MethodPost:
+			tenantHandler.CreateTenant(w, r) // Create a tenant
+		}
+	})
+
+	http.HandleFunc("/tenants/update", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			tenantHandler.UpdateTenant(w, r) // Update a tenant
+		}
+	})
+
+	http.HandleFunc("/tenants/user", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			tenantHandler.GetTenantsByUser(w, r) // Get tenants by user
+		}
+	})
+
+	http.HandleFunc("/tenants/mapping", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			tenantHandler.MapUserToTenant(w, r) // Map a single user to a tenant
+		case http.MethodDelete:
+			tenantHandler.DeleteUserTenantMapping(w, r) // Delete user-tenant mapping
+		}
+	})
+
+	http.HandleFunc("/tenants/mappings", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			tenantHandler.MapUsersToTenant(w, r) // Map multiple users to a tenant
+		}
+	})
+
+	// Start the server on port 8080
+	log.Println("Server is running on http://localhost:8080")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatalf("Could not start server: %v", err)
+	}
 }
 
-// Initialize PostgreSQL database connection
-func ConnectDB() (*gorm.DB, error) {
-	// Update the connection string (DSN) as per your database credentials
-	dsn := "host=localhost user=postgres password=314#sg dbname=sg-portal port=5432 sslmode=disable"
+// initDB initializes the GORM database connection (using PostgreSQL)
+func initDB() (*gorm.DB, error) {
+	// Replace with your actual PostgreSQL connection string
+	dsn := "host=localhost user=postgres password=314#sg dbname=sg-portal port=5432 sslmode=disable TimeZone=Asia/Kolkata"
+
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
+
 	return db, nil
 }
 
-func main() {
-	// Connect to the database
-	db, err := ConnectDB()
-	if err != nil {
-		log.Fatal("Failed to connect to the database:", err)
-	}
-
-	// Auto-migrate the schema for User model
-	err = db.AutoMigrate(&User{})
-	if err != nil {
-		log.Fatal("Failed to auto-migrate schema:", err)
-	}
-	log.Println("Database schema migrated successfully")
-
-	// Create a repository instance for User model
-	userRepo := repository.NewRepository[User](db)
-
-	// Example: Create a new user using the repository helper
-	newUser := User{Name: "John", Email: "John@example.com", Age: 25}
-	if err := userRepo.Create(&newUser); err != nil {
-		log.Fatal("Failed to create user:", err)
-	}
-	log.Println("New user created:", newUser)
-
-	// Example: Fetch a user by email using the repository helper
-	user, err := userRepo.GetByField("email", "John@example.com")
-	if err != nil {
-		log.Fatal("Failed to get user:", err)
-	}
-	log.Println("User found:", user)
-
-	// Example: Update user's age using the repository helper
-	updateData := map[string]interface{}{"Age": 22}
-	err = userRepo.UpdateOne("email", "John@example.com", updateData)
-	if err != nil {
-		log.Fatal("Failed to update user:", err)
-	}
-	log.Println("User updated successfully")
-
-	// Example: Get all users whose age is greater than 20
-	users, err := userRepo.GetAllByCondition("age > ?", 20)
-	if err != nil {
-		log.Fatal("Failed to get users:", err)
-	}
-	log.Println("Users found:", users)
-}
