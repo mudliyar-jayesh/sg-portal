@@ -23,3 +23,13 @@ type FeatureSubscriptionMapping struct {
 	FeatureId      uint32 `gorm:"unique;not null"`
 	SubscriptionId uint32 `gorm:"unique;not null"`
 }
+
+type UserSubscriptionHistory struct {
+	ID               uint64 `gorm:"primaryKey"`
+	UserId           uint64 `gorm:"unique;not null"`
+	SubscriptionId   uint32 `gorm:"unique;not null"`
+	StartDate        time.Time
+	RenewalDate      time.Time
+	ExpiryDate       time.Time
+	NumberOfRenewals uint16
+}

@@ -18,12 +18,12 @@ func main() {
 		log.Fatalf("Could not connect to the database: %v", err)
 	}
 
-	// Migrate the models (optional, if you want to auto-create tables)
+	// Migrate the models
 	err = db.AutoMigrate(
 		&models.Tenant{}, &models.UserTenantMapping{},
 		&models.Feature{}, &models.UserFeatureMapping{},
 		&models.Subscription{}, &models.UserSubscriptionMapping{},
-		&models.FeatureSubscriptionMapping{},
+		&models.FeatureSubscriptionMapping{}, &models.UserSubscriptionHistory{},
 	)
 	if err != nil {
 		log.Fatalf("Failed to migrate database schema: %v", err)
@@ -33,8 +33,9 @@ func main() {
 	tenantHandler := v1.NewTenantHandler(db)
 	featureHandler := v1.NewFeatureHandler(db)
 	subscriptionHandler := v1.NewSubscriptionHandler(db)
+	userSubscriptionHistoryHandler := v1.NewUserSubscriptionHistoryHandler(db)
 
-	// Set up routes for the Tenant API endpoints
+	// Set up routes for the Tenant API
 	http.HandleFunc("/tenants", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -71,7 +72,7 @@ func main() {
 		}
 	})
 
-	// Set up routes for the Feature API endpoints
+	// Set up routes for the Feature API
 	http.HandleFunc("/features", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -108,7 +109,7 @@ func main() {
 		}
 	})
 
-	// Set up routes for the Subscription API endpoints
+	// Set up routes for the Subscription API
 	http.HandleFunc("/subscriptions", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -139,7 +140,7 @@ func main() {
 		}
 	})
 
-	// FeatureSubscriptionMapping endpoints
+	// Set up routes for Feature-Subscription Mapping
 	http.HandleFunc("/subscriptions/features", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
@@ -152,6 +153,29 @@ func main() {
 	http.HandleFunc("/subscriptions/features/list", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			subscriptionHandler.GetFeaturesBySubscription(w, r) // Get features by subscription
+		}
+	})
+
+	// Set up routes for UserSubscriptionHistory API
+	http.HandleFunc("/subscriptions/history", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			// If a userId is present, fetch specific user history
+			if r.URL.Query().Has("userId") {
+				userSubscriptionHistoryHandler.GetUserSubscriptionHistory(w, r) // Get specific user subscription history
+			} else {
+				userSubscriptionHistoryHandler.GetAllUserSubscriptionHistories(w, r) // Get all subscription histories
+			}
+		case http.MethodPost:
+			userSubscriptionHistoryHandler.CreateUserSubscriptionHistory(w, r) // Create a new user subscription history
+		case http.MethodDelete:
+			userSubscriptionHistoryHandler.DeleteUserSubscriptionHistory(w, r) // Delete user subscription history
+		}
+	})
+
+	http.HandleFunc("/subscriptions/history/update", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			userSubscriptionHistoryHandler.UpdateUserSubscriptionHistory(w, r) // Update an existing user subscription history
 		}
 	})
 
