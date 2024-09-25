@@ -46,3 +46,8 @@ func (r *Repository[T]) Joins(join string, condition string, args ...interface{}
 	err := r.db.Joins(join).Where(condition, args...).Find(&entries).Error
 	return entries, err
 }
+
+// Delete deletes records based on a condition
+func (r *Repository[T]) Delete(condition string, args ...interface{}) error {
+	return r.db.Where(condition, args...).Delete(new(T)).Error
+}
