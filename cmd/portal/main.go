@@ -19,7 +19,7 @@ func main() {
 	}
 
 	// Migrate the models (optional, if you want to auto-create tables)
-	err = db.AutoMigrate(&models.Tenant{}, &models.UserTenantMapping{})
+	err = db.AutoMigrate(&models.Tenant{}, &models.UserTenantMapping{}, &models.Feature{}, &models.UserFeatureMapping{})
 	if err != nil {
 		log.Fatalf("Failed to migrate database schema: %v", err)
 	}
@@ -27,7 +27,10 @@ func main() {
 	// Initialize the TenantHandler
 	tenantHandler := v1.NewTenantHandler(db)
 
-	// Set up routes for the API endpoints
+	// Initialize the FeatureHandler
+	featureHandler := v1.NewFeatureHandler(db)
+
+	// Set up routes for the Tenant API endpoints
 	http.HandleFunc("/tenants", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -61,6 +64,43 @@ func main() {
 	http.HandleFunc("/tenants/mappings", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			tenantHandler.MapUsersToTenant(w, r) // Map multiple users to a tenant
+		}
+	})
+
+	// Set up routes for the Feature API endpoints
+	http.HandleFunc("/features", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			featureHandler.GetAllFeatures(w, r) // Get all features
+		case http.MethodPost:
+			featureHandler.CreateFeature(w, r) // Create a feature
+		}
+	})
+
+	http.HandleFunc("/features/update", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			featureHandler.UpdateFeature(w, r) // Update a feature
+		}
+	})
+
+	http.HandleFunc("/features/user", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			featureHandler.GetFeaturesByUser(w, r) // Get features by user
+		}
+	})
+
+	http.HandleFunc("/features/mapping", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			featureHandler.MapUserToFeature(w, r) // Map a single user to a feature
+		case http.MethodDelete:
+			featureHandler.DeleteUserFeatureMapping(w, r) // Delete user-feature mapping
+		}
+	})
+
+	http.HandleFunc("/features/mappings", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			featureHandler.MapUsersToFeature(w, r) // Map multiple users to a feature
 		}
 	})
 
