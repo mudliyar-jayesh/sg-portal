@@ -42,4 +42,5 @@ func ParseUintParam(r *http.Request, param string) (uint64, error) {
 // HandleError is used to send an HTTP error response with a custom message and status code.
 func HandleError(w http.ResponseWriter, statusCode int, message string) {
 	http.Error(w, message, statusCode)
+
 }
