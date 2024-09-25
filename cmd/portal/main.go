@@ -1,10 +1,11 @@
 package main
 
 import (
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 	"log"
 	repository "sg-portal/pkg/util"
+
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 // Define the User model
