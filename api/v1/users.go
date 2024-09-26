@@ -128,15 +128,9 @@ func (h *UserHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
-	// Get the user ID from the context (set by the token middleware)
-	userID, ok := util.UserIDFromContext(r.Context())
-	if !ok {
-		util.HandleError(w, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
 	// Parse the request body to get the old password and the new password
 	passwordData, err := util.ParseJSONBody[struct {
+		EmailId     string `json:"email_id"`
 		OldPassword string `json:"old_password"`
 		NewPassword string `json:"new_password"` // Base64 encoded
 	}](w, r)
@@ -144,6 +138,13 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		util.HandleError(w, http.StatusBadRequest, "Invalid request data")
 		return
 	}
+	// Decode the new base64-encoded password
+	oldPasswordBytes, err := base64.StdEncoding.DecodeString(passwordData.OldPassword)
+	if err != nil {
+		util.HandleError(w, http.StatusBadRequest, "Invalid password encoding")
+		return
+	}
+	oldPassword := string(oldPasswordBytes)
 
 	// Decode the new base64-encoded password
 	newPasswordBytes, err := base64.StdEncoding.DecodeString(passwordData.NewPassword)
@@ -153,15 +154,21 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	newPassword := string(newPasswordBytes)
 
+	userInfo, err := h.UserRepo.GetByField("email", passwordData.EmailId)
+	if err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "Invalid Email")
+		return
+	}
+
 	// Fetch the current user password details
-	userPassword, err := h.UserPasswordRepo.GetByField("user_id", userID)
+	userPassword, err := h.UserPasswordRepo.GetByField("user_id", userInfo.ID)
 	if err != nil {
 		util.HandleError(w, http.StatusInternalServerError, "Error fetching user password")
 		return
 	}
 
 	// Validate the old password
-	if err := models.ValidatePassword(passwordData.OldPassword, userPassword.Salt, userPassword.Password); err != nil {
+	if err := models.ValidatePassword(oldPassword, userPassword.Salt, userPassword.Password); err != nil {
 		util.HandleError(w, http.StatusUnauthorized, "Incorrect old password")
 		return
 	}
@@ -179,7 +186,7 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update the user's password and salt in the database
-	if err := h.UserPasswordRepo.UpdateOne("user_id", userID, map[string]interface{}{
+	if err := h.UserPasswordRepo.UpdateOne("user_id", userInfo.ID, map[string]interface{}{
 		"password":   newHashedPassword,
 		"salt":       newSalt,
 		"updated_at": time.Now(),
