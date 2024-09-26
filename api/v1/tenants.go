@@ -3,9 +3,10 @@ package v1
 import (
 	"net/http"
 
-	"gorm.io/gorm"
 	"sg-portal/internal/models"
 	"sg-portal/pkg/util"
+
+	"gorm.io/gorm"
 )
 
 type TenantHandler struct {
