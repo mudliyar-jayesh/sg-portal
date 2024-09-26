@@ -62,7 +62,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Email:        userData.Email,
 		Name:         userData.Name,
 		MobileNumber: userData.MobileNumber,
-		Type:         userData.Type,  // Set the user type
+		Type:         userData.Type, // Set the user type
 	}
 
 	// Create user record
@@ -92,10 +92,28 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// add default demo subscription
+	subscriptionRepo := util.NewRepository[models.Subscription](util.Db)
+	demoSubscription, subErr := subscriptionRepo.GetByField("Code", "demo")
+	if subErr != nil || demoSubscription == nil {
+		util.HandleError(w, http.StatusInternalServerError, "Could not get Demo Subscription ")
+		return
+	}
+
+	userSubscriptionMapping := &models.UserSubscriptionMapping{
+		SubscriptionId: demoSubscription.ID,
+		UserId:         user.ID,
+	}
+
+	userSubscriptionRepo := util.NewRepository[models.UserSubscriptionMapping](util.Db)
+	if err := userSubscriptionRepo.Create(userSubscriptionMapping); err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "Could not get Demo Subscription ")
+		return
+	}
+
 	// Respond with the newly created user (excluding password info)
 	util.RespondJSON(w, http.StatusCreated, user)
 }
-
 
 // Login handles user login and token generation.
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -154,7 +172,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	util.RespondJSON(w, http.StatusOK, &response)
 }
 
-
 // ValidateToken validates the token passed in the "Token" header and returns the user ID.
 func ValidateToken(r *http.Request, tokenRepo *util.Repository[models.Token]) (uint64, error) {
 	// Extract the token from the "Token" header
@@ -177,7 +194,6 @@ func ValidateToken(r *http.Request, tokenRepo *util.Repository[models.Token]) (u
 	// Return the associated user ID
 	return token.UserID, nil
 }
-
 
 // TokenValidationMiddleware checks for a valid token and attaches the user ID to the context.
 func TokenValidationMiddleware(tokenRepo *util.Repository[models.Token]) func(http.Handler) http.Handler {

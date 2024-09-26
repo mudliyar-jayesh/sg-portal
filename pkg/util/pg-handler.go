@@ -4,6 +4,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var Db *gorm.DB
+
 type Repository[T any] struct {
 	db *gorm.DB
 }

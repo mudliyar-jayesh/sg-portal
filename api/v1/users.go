@@ -180,8 +180,8 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	// Update the user's password and salt in the database
 	if err := h.UserPasswordRepo.UpdateOne("user_id", userID, map[string]interface{}{
-		"password": newHashedPassword,
-		"salt":     newSalt,
+		"password":   newHashedPassword,
+		"salt":       newSalt,
 		"updated_at": time.Now(),
 	}); err != nil {
 		util.HandleError(w, http.StatusInternalServerError, "Error updating password")
