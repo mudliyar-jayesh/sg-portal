@@ -118,8 +118,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 // Login handles user login and token generation.
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	loginData := struct {
-		Email    string `json:"email"`
-		Password string `json:"password"` // Base64 encoded
+		Credential string `json:"credential"` // Can be email or mobile number
+		Password   string `json:"password"`   // Base64 encoded
 	}{}
 
 	if err := json.NewDecoder(r.Body).Decode(&loginData); err != nil {
@@ -135,8 +135,19 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	password := string(passwordBytes)
 
-	// Fetch user by email
-	user, err := h.UserRepo.GetByField("email", loginData.Email)
+	// Determine if the credential is an email or a mobile number
+	var user *models.User
+	if util.IsValidEmail(loginData.Credential) {
+		// Fetch user by email
+		user, err = h.UserRepo.GetByField("email", loginData.Credential)
+	} else if util.IsValidMobileNumber(loginData.Credential) {
+		// Fetch user by mobile number
+		user, err = h.UserRepo.GetByField("mobile_number", loginData.Credential)
+	} else {
+		util.HandleError(w, http.StatusUnauthorized, "Invalid email or mobile number")
+		return
+	}
+
 	if err != nil {
 		util.HandleError(w, http.StatusUnauthorized, "Invalid email or password")
 		return
@@ -171,6 +182,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	util.RespondJSON(w, http.StatusOK, &response)
 }
+
 
 // ValidateToken validates the token passed in the "Token" header and returns the user ID.
 func ValidateToken(r *http.Request, tokenRepo *util.Repository[models.Token]) (uint64, error) {
