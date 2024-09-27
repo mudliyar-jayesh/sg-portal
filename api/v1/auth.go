@@ -184,6 +184,59 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 
+// ValidateToken handles token validation and returns a JSON response
+func (h *AuthHandler) ValidateToken (w http.ResponseWriter, r *http.Request) {
+	// Extract the token from the "Token" header
+	tokenHeader := r.Header.Get("Token")
+	if tokenHeader == "" {
+		// Respond with GenericResponseMessage
+		response := models.GenericResponseMessage{
+			Message: "Token is required",
+			Result:  false,
+		}
+		util.RespondJSON(w, http.StatusUnauthorized, &response)
+		return
+	}
+
+	// Validate the token
+	token, err := h.TokenRepo.GetByField("value", tokenHeader)
+	if err != nil {
+		response := models.GenericResponseMessage{
+			Message: "Invalid or expired token",
+			Result:  false,
+		}
+		util.RespondJSON(w, http.StatusUnauthorized, &response)
+		return
+	}
+
+	// Check if the token is expired
+	if time.Now().After(token.Expiry) {
+		response := models.GenericResponseMessage{
+			Message: "Token has expired",
+			Result:  false,
+		}
+		util.RespondJSON(w, http.StatusUnauthorized, &response)
+		return
+	}
+
+	// Return success if the token is valid
+	successResponse := struct {
+		Message    string  `json:"message"`
+		Result     bool    `json:"result"`
+		UserID     uint64  `json:"user_id"`
+		ExpiresIn  float64 `json:"expires_in"` // Time in seconds until expiry
+	}{
+		Message:   "Token is valid",
+		Result:    true,
+		UserID:    token.UserID,
+		ExpiresIn: time.Until(token.Expiry).Seconds(),
+	}
+
+	util.RespondJSON(w, http.StatusOK, &successResponse)
+}
+
+
+
 // ValidateToken validates the token passed in the "Token" header and returns the user ID.
 func ValidateToken(r *http.Request, tokenRepo *util.Repository[models.Token]) (uint64, error) {
 	// Extract the token from the "Token" header

@@ -99,6 +99,12 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("/token/validate", func(w http.ResponseWriter, r *http.Request){
+		if r.Method == http.MethodGet {
+			authHandler.ValidateToken(w, r)
+		}
+	})
+
 	// User-related routes
 	mux.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
