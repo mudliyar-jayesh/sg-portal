@@ -30,7 +30,6 @@ func corsMiddleware(next http.Handler) http.Handler {
 		// Call the next handler
 		next.ServeHTTP(w, r)
 	})
-
 }
 
 func main() {
@@ -49,6 +48,7 @@ func main() {
 		&models.Subscription{}, &models.UserSubscriptionMapping{},
 		&models.FeatureSubscriptionMapping{}, &models.UserSubscriptionHistory{},
 	)
+
 	if err != nil {
 		log.Fatalf("Failed to migrate database schema: %v", err)
 	}
@@ -213,7 +213,7 @@ func authenticatedHandler(w http.ResponseWriter, r *http.Request, db *gorm.DB, h
 
 // initDB initializes the GORM database connection using PostgreSQL
 func initDB() (*gorm.DB, error) {
-	dsn := "host=localhost user=postgres password=314#sg dbname=sg-portal port=5432 sslmode=disable TimeZone=Asia/Kolkata"
+	dsn := "host=192.168.1.36 user=postgres password=314#sg dbname=sg-portal port=5432 sslmode=disable TimeZone=Asia/Kolkata"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
