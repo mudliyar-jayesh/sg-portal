@@ -111,6 +111,21 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// map default tenant
+	tenantsRepo := util.NewRepository[models.Tenant](util.Db)
+	defaultTenant, tenantErr := tenantsRepo.GetByField("CompanyName", "default")
+	if tenantErr != nil || defaultTenant == nil {
+		util.HandleError(w, http.StatusInternalServerError, "Could not map to demo server")
+	}
+
+    tenantMapping := models.UserTenantMapping {
+        UserId: user.ID,
+        TenantId: defaultTenant.ID,
+    }
+
+	tenantsMappingRepo := util.NewRepository[models.UserTenantMapping](util.Db)
+    if err := tenantsMappingRepo.Create()
+
 	// Respond with the newly created user (excluding password info)
 	util.RespondJSON(w, http.StatusCreated, user)
 }
@@ -183,9 +198,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	util.RespondJSON(w, http.StatusOK, &response)
 }
 
-
 // ValidateToken handles token validation and returns a JSON response
-func (h *AuthHandler) ValidateToken (w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) ValidateToken(w http.ResponseWriter, r *http.Request) {
 	// Extract the token from the "Token" header
 	tokenHeader := r.Header.Get("Token")
 	if tokenHeader == "" {
@@ -221,10 +235,10 @@ func (h *AuthHandler) ValidateToken (w http.ResponseWriter, r *http.Request) {
 
 	// Return success if the token is valid
 	successResponse := struct {
-		Message    string  `json:"message"`
-		Result     bool    `json:"result"`
-		UserID     uint64  `json:"user_id"`
-		ExpiresIn  float64 `json:"expires_in"` // Time in seconds until expiry
+		Message   string  `json:"message"`
+		Result    bool    `json:"result"`
+		UserID    uint64  `json:"user_id"`
+		ExpiresIn float64 `json:"expires_in"` // Time in seconds until expiry
 	}{
 		Message:   "Token is valid",
 		Result:    true,
@@ -234,8 +248,6 @@ func (h *AuthHandler) ValidateToken (w http.ResponseWriter, r *http.Request) {
 
 	util.RespondJSON(w, http.StatusOK, &successResponse)
 }
-
-
 
 // ValidateToken validates the token passed in the "Token" header and returns the user ID.
 func ValidateToken(r *http.Request, tokenRepo *util.Repository[models.Token]) (uint64, error) {
