@@ -6,8 +6,8 @@ import (
 
 type UserTenantMapping struct {
 	ID       uint64 `gorm:"primaryKey"`
-	UserId   uint64 `gorm:"uniqueIndex;not null"`
-	TenantId uint64 `gorm:"uniqueIndex;not null"`
+	UserId   uint64 `gorm:"uniqueIndex:idx_tnt_mapping;not null"`
+	TenantId uint64 `gorm:"uniqueIndex:idx_tnt_mapping;not null"`
 }
 
 type Tenant struct {

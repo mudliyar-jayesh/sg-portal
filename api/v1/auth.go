@@ -113,18 +113,20 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	// map default tenant
 	tenantsRepo := util.NewRepository[models.Tenant](util.Db)
-	defaultTenant, tenantErr := tenantsRepo.GetByField("CompanyName", "default")
+	defaultTenant, tenantErr := tenantsRepo.GetByField("company_name", "default")
 	if tenantErr != nil || defaultTenant == nil {
 		util.HandleError(w, http.StatusInternalServerError, "Could not map to demo server")
 	}
 
-    tenantMapping := models.UserTenantMapping {
-        UserId: user.ID,
-        TenantId: defaultTenant.ID,
-    }
+	tenantMapping := models.UserTenantMapping{
+		UserId:   user.ID,
+		TenantId: defaultTenant.ID,
+	}
 
 	tenantsMappingRepo := util.NewRepository[models.UserTenantMapping](util.Db)
-    if err := tenantsMappingRepo.Create()
+	if err := tenantsMappingRepo.Create(&tenantMapping); err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "Could not map to demo server")
+	}
 
 	// Respond with the newly created user (excluding password info)
 	util.RespondJSON(w, http.StatusCreated, user)

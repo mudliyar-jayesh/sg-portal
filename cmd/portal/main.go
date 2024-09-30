@@ -60,9 +60,18 @@ func main() {
 	featureHandler := v1.NewFeatureHandler(db)
 	subscriptionHandler := v1.NewSubscriptionHandler(db)
 	userSubscriptionHistoryHandler := v1.NewUserSubscriptionHistoryHandler(db)
+	companyHandler := v1.NewCompanyHandler(db)
 
 	// Define a new ServeMux to register routes
 	mux := http.NewServeMux()
+
+	// company-related routes
+	mux.HandleFunc("/companies", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			companyHandler.GetCompanies(w, r)
+		}
+	})
 
 	// Tenant-related routes
 	mux.HandleFunc("/tenants", func(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +108,7 @@ func main() {
 		}
 	})
 
-	mux.HandleFunc("/token/validate", func(w http.ResponseWriter, r *http.Request){
+	mux.HandleFunc("/token/validate", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			authHandler.ValidateToken(w, r)
 		}
