@@ -33,6 +33,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	log.Printf("[#] Starting Server...\n")
 	// Initialize the database connection
 	db, err := initDB()
 	if err != nil {
@@ -228,10 +229,12 @@ func authenticatedHandler(w http.ResponseWriter, r *http.Request, db *gorm.DB, h
 
 // initDB initializes the GORM database connection using PostgreSQL
 func initDB() (*gorm.DB, error) {
+	log.Printf("[+] Connecting to Postgres...\n")
 	dsn := "host=192.168.1.36 user=postgres password=314#sg dbname=sg-portal port=5432 sslmode=disable TimeZone=Asia/Kolkata"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("[!] Connected.\n")
 	return db, nil
 }
