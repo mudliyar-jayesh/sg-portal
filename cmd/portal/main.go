@@ -84,6 +84,12 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("/tenants/map", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			tenantHandler.MapUserToTenant(w, r)
+		}
+	})
+
 	mux.HandleFunc("/tenants/update", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPut {
 			tenantHandler.UpdateTenant(w, r)
