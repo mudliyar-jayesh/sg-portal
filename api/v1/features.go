@@ -34,7 +34,53 @@ func (h *FeatureHandler) CreateFeature(w http.ResponseWriter, r *http.Request) {
 	util.RespondJSON(w, http.StatusCreated, feature)
 }
 
+func (h *FeatureHandler) CreateMultipleFeatures(w http.ResponseWriter, r *http.Request) {
+	features, err := util.ParseJSONBody[[]models.Feature](w, r)
+	if err != nil {
+		return // Error already handled by ParseJSONBody
+	}
+	if err := h.FeatureRepo.CreateMultiple(features); err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "Error creating feature")
+		return
+	}
+	util.RespondJSON(w, http.StatusCreated, features)
+}
+
 // MapUserToFeature maps a single user to a feature
+func (h *FeatureHandler) MapFeaturesToUser(w http.ResponseWriter, r *http.Request) {
+
+	permissionCodes, err := util.ParseJSONBody[[]string](w, r)
+	if err != nil {
+		return // Error already handled by ParseJSONBody
+	}
+
+	userId, err := util.ParseUintParam(r, "userId")
+	if err != nil {
+		util.HandleError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	features, err := h.FeatureRepo.GetAllByCondition("permission IN ?", *permissionCodes)
+	if err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "invalid permission codes")
+		return
+	}
+
+	var featureMappings []models.UserFeatureMapping
+	for _, feature := range features {
+		var mapping = models.UserFeatureMapping{
+			UserId:    userId,
+			FeatureId: feature.ID,
+		}
+		featureMappings = append(featureMappings, mapping)
+	}
+
+	if err := h.UserFeatureRepo.CreateMultiple(&featureMappings); err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "Error mapping user to feature")
+		return
+	}
+	util.RespondJSON(w, http.StatusCreated, &featureMappings)
+}
 func (h *FeatureHandler) MapUserToFeature(w http.ResponseWriter, r *http.Request) {
 	mapping, err := util.ParseJSONBody[models.UserFeatureMapping](w, r)
 	if err != nil {

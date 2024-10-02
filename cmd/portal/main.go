@@ -156,6 +156,19 @@ func main() {
 			featureHandler.CreateFeature(w, r)
 		}
 	})
+	mux.HandleFunc("/features/map/bulk", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			featureHandler.MapFeaturesToUser(w, r)
+		}
+	})
+
+	mux.HandleFunc("/features/bulk", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			featureHandler.CreateMultipleFeatures(w, r)
+		}
+	})
 
 	mux.HandleFunc("/features/update", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPut {

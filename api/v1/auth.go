@@ -193,9 +193,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Respond with the generated token
-	response := map[string]string{
-		"token": token.Value.String(),
+	// Respond with the
+	response := struct {
+		User  *models.User `json:"user_info"`
+		Token string       `json:"token"`
+	}{
+		Token: token.Value.String(),
+		User:  user,
 	}
 	util.RespondJSON(w, http.StatusOK, &response)
 }
