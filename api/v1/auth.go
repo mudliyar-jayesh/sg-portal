@@ -32,6 +32,28 @@ func NewAuthHandler(db *gorm.DB) *AuthHandler {
 
 // Register handles user registration.
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	// add default demo subscription
+	subscriptionRepo := util.NewRepository[models.Subscription](util.Db)
+	demoSubscription, subErr := subscriptionRepo.GetByField("Code", "demo")
+	if subErr != nil || demoSubscription == nil {
+		util.HandleError(w, http.StatusInternalServerError, "Could not get Demo Subscription ")
+		return
+	}
+
+	tenantsRepo := util.NewRepository[models.Tenant](util.Db)
+	defaultTenant, tenantErr := tenantsRepo.GetByField("company_name", "default")
+	if tenantErr != nil || defaultTenant == nil {
+		util.HandleError(w, http.StatusInternalServerError, "Could not map to demo server")
+		return
+	}
+
+	featureRepo := util.NewRepository[models.Feature](util.Db)
+	allFeatures, featureErr := featureRepo.GetAllByCondition("1=1")
+	if featureErr != nil || len(allFeatures) < 1 {
+		util.HandleError(w, http.StatusInternalServerError, "Could not map  features to user")
+		return
+	}
+
 	// Parse the request body into the User and base64-encoded password.
 	userData := struct {
 		Email        string `json:"email"`
@@ -95,14 +117,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// add default demo subscription
-	subscriptionRepo := util.NewRepository[models.Subscription](util.Db)
-	demoSubscription, subErr := subscriptionRepo.GetByField("Code", "demo")
-	if subErr != nil || demoSubscription == nil {
-		util.HandleError(w, http.StatusInternalServerError, "Could not get Demo Subscription ")
-		return
-	}
-
 	userSubscriptionMapping := &models.UserSubscriptionMapping{
 		SubscriptionId: demoSubscription.ID,
 		UserId:         user.ID,
@@ -115,12 +129,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// map default tenant
-	tenantsRepo := util.NewRepository[models.Tenant](util.Db)
-	defaultTenant, tenantErr := tenantsRepo.GetByField("company_name", "default")
-	if tenantErr != nil || defaultTenant == nil {
-		util.HandleError(w, http.StatusInternalServerError, "Could not map to demo server")
-	}
-
 	tenantMapping := models.UserTenantMapping{
 		UserId:   user.ID,
 		TenantId: defaultTenant.ID,
@@ -129,6 +137,21 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	tenantsMappingRepo := util.NewRepository[models.UserTenantMapping](util.Db)
 	if err := tenantsMappingRepo.Create(&tenantMapping); err != nil {
 		util.HandleError(w, http.StatusInternalServerError, "Could not map to demo server")
+	}
+
+	// map default features to user
+	var featureMappings []models.UserFeatureMapping
+	for _, feature := range allFeatures {
+		featureMapping := models.UserFeatureMapping{
+			UserId:    user.ID,
+			FeatureId: feature.ID,
+		}
+		featureMappings = append(featureMappings, featureMapping)
+	}
+
+	featureMappingRepo := util.NewRepository[models.UserFeatureMapping](util.Db)
+	if err := featureMappingRepo.CreateMultiple(&featureMappings); err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "Could not map feature to user")
 	}
 
 	// Respond with the newly created user (excluding password info)

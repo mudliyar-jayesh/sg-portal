@@ -210,6 +210,12 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("/subscriptions/map/user", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			subscriptionHandler.MapUserToSubscription(w, r)
+		}
+	})
+
 	// Set up routes for UserSubscriptionHistory API
 	mux.HandleFunc("/subscriptions/history", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {

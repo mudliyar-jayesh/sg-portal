@@ -221,4 +221,3 @@ func (h *SubscriptionHandler) DeleteFeatureSubscriptionMapping(w http.ResponseWr
 	// Respond with success status
 	w.WriteHeader(http.StatusOK)
 }
-

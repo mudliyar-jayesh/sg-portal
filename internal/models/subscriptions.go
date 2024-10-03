@@ -37,4 +37,3 @@ type UserSubscriptionHistory struct {
 	ExpiryDate       time.Time
 	NumberOfRenewals uint16
 }
-
