@@ -21,3 +21,10 @@ type Tenant struct {
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
+
+type TokenTenantInfo struct {
+	TenantInfo *Tenant
+	UserId     *uint64
+	Success    bool
+	Message    string
+}

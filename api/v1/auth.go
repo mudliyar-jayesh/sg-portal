@@ -3,7 +3,6 @@ package v1
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"sg-portal/internal/models"
 	"sg-portal/pkg/util"
@@ -13,17 +12,21 @@ import (
 )
 
 type AuthHandler struct {
-	UserRepo         *util.Repository[models.User]
-	UserPasswordRepo *util.Repository[models.UserPassword]
-	TokenRepo        *util.Repository[models.Token]
+	UserRepo          *util.Repository[models.User]
+	UserPasswordRepo  *util.Repository[models.UserPassword]
+	TokenRepo         *util.Repository[models.Token]
+	TenantRepo        *util.Repository[models.Tenant]
+	TenantMappingRepo *util.Repository[models.UserTenantMapping]
 }
 
 // NewAuthHandler initializes the auth handler with the repositories.
 func NewAuthHandler(db *gorm.DB) *AuthHandler {
 	return &AuthHandler{
-		UserRepo:         util.NewRepository[models.User](db),
-		UserPasswordRepo: util.NewRepository[models.UserPassword](db),
-		TokenRepo:        util.NewRepository[models.Token](db),
+		UserRepo:          util.NewRepository[models.User](db),
+		UserPasswordRepo:  util.NewRepository[models.UserPassword](db),
+		TokenRepo:         util.NewRepository[models.Token](db),
+		TenantRepo:        util.NewRepository[models.Tenant](db),
+		TenantMappingRepo: util.NewRepository[models.UserTenantMapping](db),
 	}
 }
 
@@ -204,95 +207,52 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	util.RespondJSON(w, http.StatusOK, &response)
 }
 
-// ValidateToken handles token validation and returns a JSON response
-func (h *AuthHandler) ValidateToken(w http.ResponseWriter, r *http.Request) {
-	// Extract the token from the "Token" header
-	tokenHeader := r.Header.Get("Token")
-	if tokenHeader == "" {
+// validate token and resolve tenant
+
+func (h *AuthHandler) ResolveTenant(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("token")
+	companyId := r.Header.Get("companyid")
+
+	tokenRepo := util.NewRepository[models.Token](util.Db)
+	tokenInfo, err := tokenRepo.GetByField("value", token)
+	if err != nil {
 		// Respond with GenericResponseMessage
-		response := models.GenericResponseMessage{
-			Message: "Token is required",
-			Result:  false,
+		response := models.TokenTenantInfo{
+			Message: "Invalid Token Provided",
+			Success: false,
 		}
 		util.RespondJSON(w, http.StatusUnauthorized, &response)
 		return
 	}
 
-	// Validate the token
-	token, err := h.TokenRepo.GetByField("value", tokenHeader)
+	tenantRepo := util.NewRepository[models.Tenant](util.Db)
+	tenantInfo, err := tenantRepo.GetByField("company_guid", companyId)
 	if err != nil {
-		response := models.GenericResponseMessage{
-			Message: "Invalid or expired token",
-			Result:  false,
+		// Respond with GenericResponseMessage
+		response := models.TokenTenantInfo{
+			Message: "Non Registered Company Requested",
+			Success: false,
+		}
+		util.RespondJSON(w, http.StatusUnauthorized, &response)
+		return
+	}
+	tenantMappingRepo := util.NewRepository[models.UserTenantMapping](util.Db)
+	tenantMapping, err := tenantMappingRepo.GetAllByCondition("user_id = ? and tenant_id = ?", tokenInfo.UserID, tenantInfo.ID)
+	if err != nil || len(tenantMapping) < 1 {
+		// Respond with GenericResponseMessage
+		response := models.TokenTenantInfo{
+			Message: "No Tenants Configured for the user",
+			Success: false,
 		}
 		util.RespondJSON(w, http.StatusUnauthorized, &response)
 		return
 	}
 
-	// Check if the token is expired
-	if time.Now().After(token.Expiry) {
-		response := models.GenericResponseMessage{
-			Message: "Token has expired",
-			Result:  false,
-		}
-		util.RespondJSON(w, http.StatusUnauthorized, &response)
-		return
+	response := models.TokenTenantInfo{
+		TenantInfo: tenantInfo,
+		UserId:     &tokenInfo.UserID,
+		Message:    "Token Valid",
+		Success:    true,
 	}
-
-	// Return success if the token is valid
-	successResponse := struct {
-		Message   string  `json:"message"`
-		Result    bool    `json:"result"`
-		UserID    uint64  `json:"user_id"`
-		ExpiresIn float64 `json:"expires_in"` // Time in seconds until expiry
-	}{
-		Message:   "Token is valid",
-		Result:    true,
-		UserID:    token.UserID,
-		ExpiresIn: time.Until(token.Expiry).Seconds(),
-	}
-
-	util.RespondJSON(w, http.StatusOK, &successResponse)
-}
-
-// ValidateToken validates the token passed in the "Token" header and returns the user ID.
-func ValidateToken(r *http.Request, tokenRepo *util.Repository[models.Token]) (uint64, error) {
-	// Extract the token from the "Token" header
-	tokenHeader := r.Header.Get("Token")
-	if tokenHeader == "" {
-		return 0, errors.New("missing token")
-	}
-
-	// Fetch the token from the database
-	token, err := tokenRepo.GetByField("value", tokenHeader)
-	if err != nil {
-		return 0, errors.New("invalid or expired token")
-	}
-
-	// Check if the token is expired
-	if time.Now().After(token.Expiry) {
-		return 0, errors.New("expired token")
-	}
-
-	// Return the associated user ID
-	return token.UserID, nil
-}
-
-// TokenValidationMiddleware checks for a valid token and attaches the user ID to the context.
-func TokenValidationMiddleware(tokenRepo *util.Repository[models.Token]) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Validate the token and extract the user ID
-			userID, err := ValidateToken(r, tokenRepo)
-			if err != nil {
-				util.HandleError(w, http.StatusUnauthorized, err.Error())
-				return
-			}
-
-			// Set user ID in context for further use
-			r = r.WithContext(util.ContextWithUserID(r.Context(), userID))
-
-			next.ServeHTTP(w, r)
-		})
-	}
+	util.RespondJSON(w, http.StatusOK, &response)
 }

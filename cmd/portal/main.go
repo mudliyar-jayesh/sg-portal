@@ -117,7 +117,7 @@ func main() {
 
 	mux.HandleFunc("/token/validate", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			authHandler.ValidateToken(w, r)
+			authHandler.ResolveTenant(w, r)
 		}
 	})
 
@@ -142,14 +142,14 @@ func main() {
 	// Profile route (for getting the authenticated user's profile)
 	mux.HandleFunc("/profile", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			authenticatedHandler(w, r, db, userHandler.GetUserProfile)
+			userHandler.GetUserProfile(w, r)
 		}
 	})
 
 	// Change password route
 	mux.HandleFunc("/password/change", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			authenticatedHandler(w, r, db, userHandler.ChangePassword)
+			userHandler.ChangePassword(w, r)
 		}
 	})
 
@@ -230,20 +230,6 @@ func main() {
 	if err := http.ListenAndServe(":8080", corsMux); err != nil {
 		log.Fatalf("Could not start server: %v", err)
 	}
-}
-
-// authenticatedHandler ensures the user is authenticated before calling a handler function
-func authenticatedHandler(w http.ResponseWriter, r *http.Request, db *gorm.DB, handler func(http.ResponseWriter, *http.Request)) {
-	tokenRepo := util.NewRepository[models.Token](db)
-
-	userID, err := v1.ValidateToken(r, tokenRepo)
-	if err != nil {
-		util.HandleError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
-	r = r.WithContext(util.ContextWithUserID(r.Context(), userID))
-	handler(w, r)
 }
 
 // initDB initializes the GORM database connection using PostgreSQL
