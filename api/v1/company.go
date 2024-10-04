@@ -48,3 +48,30 @@ func (h *CompanyHandler) GetCompanies(w http.ResponseWriter, r *http.Request) {
 	}
 	util.RespondJSON(w, http.StatusOK, &tenants)
 }
+
+func (h *CompanyHandler) GetUserByCompany(w http.ResponseWriter, r *http.Request) {
+	companyId := r.Header.Get("companyid")
+	tenant, err := h.TenantRepo.GetByField("company_guid", companyId)
+	if err != nil || tenant == nil {
+		util.HandleError(w, http.StatusNoContent, "No Tenant found")
+		return
+	}
+	mappings, mappingErr := h.TenantMappingRepo.GetAllByCondition("tenant_id = ?", tenant.ID)
+	if mappingErr != nil || len(mappings) < 1 {
+		util.HandleError(w, http.StatusNoContent, "No users found for the company")
+		return
+	}
+
+	var userIds []uint64
+	for _, mapping := range mappings {
+		userIds = append(userIds, mapping.UserId)
+	}
+
+	users, userErr := h.UserRepo.GetAllByCondition("id IN ?", userIds)
+	if userErr != nil || len(users) < 1 {
+		util.HandleError(w, http.StatusNoContent, "No users found for the company")
+		return
+	}
+
+	util.RespondJSON(w, http.StatusOK, &users)
+}
