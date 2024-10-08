@@ -46,6 +46,46 @@ func (h *FeatureHandler) CreateMultipleFeatures(w http.ResponseWriter, r *http.R
 	util.RespondJSON(w, http.StatusCreated, features)
 }
 
+// Delete all mappings for user
+func (h *FeatureHandler) DeleteAlMappingsForUser(w http.ResponseWriter, r *http.Request) {
+	userId, err := util.ParseUintParam(r, "userId")
+	if err != nil {
+		util.HandleError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+  err = h.UserFeatureRepo.Delete("user_id = ?", userId)
+	if err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "Could not delete all permissions")
+		return
+	}
+}
+
+// Delete a single permission for a userId
+func (h *FeatureHandler) DeleteFeatureForUser(w http.ResponseWriter, r *http.Request) {
+	userId, err := util.ParseUintParam(r, "userId")
+	if err != nil {
+		util.HandleError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+  permissionCode := r.URL.Query().Get("code")
+
+  feature, err := h.FeatureRepo.GetByField("permission", permissionCode)
+	if err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "invalid permission code")
+		return
+	}
+
+
+  err = h.UserFeatureRepo.Delete("user_id = ? and feature_id = ?", userId, feature.ID)
+	if err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "Unable to delete feature permission")
+		return
+	}
+}
+
+
 // MapUserToFeature maps a single user to a feature
 func (h *FeatureHandler) MapFeaturesToUser(w http.ResponseWriter, r *http.Request) {
 

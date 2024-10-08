@@ -209,6 +209,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+  // delete any existing tokens
+  h.TokenRepo.Delete("user_id = ?", user.ID)
+
 	// Generate token
 	expiry := time.Now().Add(time.Hour * 72) // Token valid for 72 hours
 	token := models.NewToken(user.ID, expiry)

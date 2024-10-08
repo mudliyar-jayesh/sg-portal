@@ -175,6 +175,20 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("/features/un-map", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			featureHandler.DeleteFeatureForUser(w, r)
+		}
+	})
+
+	mux.HandleFunc("/features/un-map/all", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			featureHandler.DeleteAlMappingsForUser(w, r)
+		}
+	})
+
 	mux.HandleFunc("/features/bulk", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
@@ -247,7 +261,7 @@ func main() {
 // initDB initializes the GORM database connection using PostgreSQL
 func initDB() (*gorm.DB, error) {
 	log.Printf("[+] Connecting to Postgres...\n")
-	dsn := "host=192.168.1.36 user=postgres password=314#sg dbname=sg-portal port=5432 sslmode=disable TimeZone=Asia/Kolkata"
+	dsn := "host=localhost user=postgres password=314#sg dbname=sg_portal port=5432 sslmode=disable TimeZone=Asia/Kolkata"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
