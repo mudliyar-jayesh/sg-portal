@@ -24,6 +24,20 @@ func RespondJSON[T any](w http.ResponseWriter, statusCode int, payload *T) {
 	json.NewEncoder(w).Encode(payload)
 }
 
+func ParseUintHeader(r *http.Request, headerKey string) (uint64, error) {
+	values := r.Header
+	paramStr := values.Get(headerKey)
+	if paramStr == "" {
+		return 0, errors.New("missing parameter: " + headerKey)
+	}
+
+	value, err := strconv.ParseUint(paramStr, 10, 64)
+	if err != nil {
+		return 0, errors.New("invalid parameter: " + headerKey)
+	}
+	return value, nil
+}
+
 // ParseUintParam extracts and parses an unsigned integer from query parameters
 func ParseUintParam(r *http.Request, param string) (uint64, error) {
 	values := r.URL.Query()

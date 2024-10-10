@@ -79,6 +79,12 @@ func main() {
 			companyHandler.GetUserByCompany(w, r)
 		}
 	})
+	mux.HandleFunc("/tenants/check-make", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			tenantHandler.CheckAndMake(w, r)
+		}
+	})
 
 	// Tenant-related routes
 	mux.HandleFunc("/tenants", func(w http.ResponseWriter, r *http.Request) {
@@ -107,7 +113,11 @@ func main() {
 			tenantHandler.GetTenantsByUser(w, r)
 		}
 	})
-
+	mux.HandleFunc("/tenants/token", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			tenantHandler.GetTenantsByHeaderUser(w, r)
+		}
+	})
 	// Auth-related routes
 	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {

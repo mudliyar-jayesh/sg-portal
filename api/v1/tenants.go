@@ -22,6 +22,60 @@ func NewTenantHandler(db *gorm.DB) *TenantHandler {
 	}
 }
 
+// Check if exits and if not create with copying default
+func (h *TenantHandler) CheckAndMake(w http.ResponseWriter, r *http.Request) {
+	userID, err := util.ParseUintHeader(r, "userid")
+	util.HandleError(w, http.StatusBadRequest, "Invalid UserId")
+	if err != nil {
+		return
+	}
+
+	defaultTenant, tenantErr := h.TenantRepo.GetByField("company_guid", "default")
+	if tenantErr != nil || defaultTenant == nil {
+		util.HandleError(w, http.StatusInternalServerError, "Could not map to demo server")
+		return
+	}
+
+	newTenant, err := util.ParseJSONBody[models.Tenant](w, r)
+	if err != nil {
+		return // Error already handled by ParseJSONBody
+	}
+
+	existing, tenantErr := h.TenantRepo.GetByField("company_name", newTenant.CompanyGuid)
+	if tenantErr == nil && existing != nil {
+		util.HandleError(w, http.StatusOK, "Tenant Already Exists")
+		return
+	}
+	var tenant = defaultTenant
+	tenant.ID = 0
+	tenant.CompanyGuid = newTenant.CompanyGuid
+	tenant.CompanyName = newTenant.CompanyName
+
+	if err := h.TenantRepo.Create(tenant); err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "Error creating tenant")
+		return
+	}
+
+	tenantInfo, err := h.TenantRepo.GetByField("company_guid", tenant.CompanyGuid)
+	if err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "Error creating tenant")
+		return
+	}
+
+	tenantMappingRepo := util.NewRepository[models.UserTenantMapping](util.Db)
+	var newEntry = models.UserTenantMapping{
+		TenantId: tenantInfo.ID,
+		UserId:   userID,
+	}
+
+	if err := tenantMappingRepo.Create(&newEntry); err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "Error creating tenant")
+		return
+	}
+
+	util.RespondJSON(w, http.StatusCreated, tenant)
+}
+
 // CreateTenant creates a new tenant
 func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	tenant, err := util.ParseJSONBody[models.Tenant](w, r)
@@ -74,6 +128,29 @@ func (h *TenantHandler) GetAllTenants(w http.ResponseWriter, r *http.Request) {
 // GetTenantsByUser returns all tenants mapped to a specific user
 func (h *TenantHandler) GetTenantsByUser(w http.ResponseWriter, r *http.Request) {
 	userId, err := util.ParseUintParam(r, "userId")
+	if err != nil {
+		util.HandleError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	mappings, err := h.UserTenantRepo.GetAllByCondition("user_id = ?", userId)
+	if err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "Error fetching user-tenant mappings")
+		return
+	}
+	var tenantIds []uint64
+	for _, mapping := range mappings {
+		tenantIds = append(tenantIds, mapping.TenantId)
+	}
+	tenants, err := h.TenantRepo.GetAllByCondition("id IN ?", tenantIds)
+	if err != nil {
+		util.HandleError(w, http.StatusInternalServerError, "Error fetching tenants")
+		return
+	}
+	util.RespondJSON(w, http.StatusOK, &tenants)
+}
+
+func (h *TenantHandler) GetTenantsByHeaderUser(w http.ResponseWriter, r *http.Request) {
+	userId, err := util.ParseUintHeader(r, "userId")
 	if err != nil {
 		util.HandleError(w, http.StatusBadRequest, err.Error())
 		return
